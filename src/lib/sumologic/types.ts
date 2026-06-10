@@ -1,9 +1,3 @@
-import type { RequestAPI, RequiredUriUrl, Options } from 'request';
-import type {
-  RequestPromise,
-  RequestPromiseOptions,
-} from 'request-promise-native';
-
 export interface IJob {
   status: number;
   id: string;
@@ -19,15 +13,15 @@ export interface IHistogramBucket {
 
 // Neither structure is specified at
 // https://help.sumologic.com/APIs/02Search_Job_API/About_the_Search_Job_API
-export type Error = any;
-export type Warning = any;
+export type SumoJobError = unknown;
+export type SumoJobWarning = unknown;
 
 export interface IStatus {
   state: string;
   messageCount: number;
   histogramBuckets: IHistogramBucket[];
-  pendingErrors: Error[];
-  pendingWarnings: Warning[];
+  pendingErrors: SumoJobError[];
+  pendingWarnings: SumoJobWarning[];
   recordCount: number;
 }
 
@@ -51,12 +45,6 @@ export interface IRecords {
   records: IMessage[];
 }
 
-export type HttpClient = RequestAPI<
-  RequestPromise,
-  RequestPromiseOptions,
-  RequiredUriUrl
->;
-
 export interface IClientOptions {
   endpoint: string;
   sumoApiId: string;
@@ -70,14 +58,7 @@ export interface IJobOptions {
   timeZone: string;
 }
 
-export interface IHttpCallOptions {
-  url?: string;
-  body?: any;
-}
-
 export interface IPaginationOptions {
   offset: number;
   limit: number;
 }
-
-export type HttpClientOptions = Options;

@@ -1,8 +1,9 @@
 {
   "compilerOptions": {
-    "target": "es2022",
-    "module": "node16",
-    "lib": ["es2022"],
+    "target": "es2023",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["es2023"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -10,6 +11,7 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "resolveJsonModule": true,
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
@@ -17,4 +19,4 @@
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
-} 
+}

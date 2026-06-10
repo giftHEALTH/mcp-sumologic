@@ -1,6 +1,4 @@
 import queryString from 'query-string';
-import { mergeRight } from 'ramda';
-import requestPromise from 'request-promise-native';
 import * as types from '@/lib/sumologic/types.js';
 
 const defaultPaginationOptions: types.IPaginationOptions = {
@@ -9,19 +7,16 @@ const defaultPaginationOptions: types.IPaginationOptions = {
 };
 
 export function normalizeRoot(endpoint: string): string {
-  const trimmed = endpoint.endsWith('/')
-    ? endpoint.slice(0, -1)
-    : endpoint;
+  const trimmed = endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint;
   return trimmed.replace(/\/api\/v\d+$/, '');
 }
 
 export class Client {
-  private httpClient: types.HttpClient;
   private params: types.IClientOptions;
   readonly root: string;
+  private cookies = new Map<string, string>();
 
-  constructor(httpClient: types.HttpClient, params: types.IClientOptions) {
-    this.httpClient = httpClient;
+  constructor(params: types.IClientOptions) {
     this.params = params;
     this.root = normalizeRoot(params.endpoint);
   }
@@ -29,52 +24,42 @@ export class Client {
   public get<T = unknown>(
     path: string,
     query?: Record<string, string | number | undefined>,
-  ): PromiseLike<T> {
+  ): Promise<T> {
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
     const queryStringValue =
       query && Object.keys(query).length > 0
         ? `?${queryString.stringify(query, { skipNull: true, skipEmptyString: true })}`
         : '';
 
-    return this.httpClient.get(
-      this.options({
-        url: `${normalizedPath}${queryStringValue}`,
-      }),
-    );
+    return this.request<T>('GET', `${normalizedPath}${queryStringValue}`);
   }
 
-  public post<T = unknown>(path: string, body?: unknown): PromiseLike<T> {
+  public post<T = unknown>(path: string, body?: unknown): Promise<T> {
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-
-    return this.httpClient.post(
-      this.options({
-        body,
-        url: normalizedPath,
-      }),
-    );
+    return this.request<T>('POST', normalizedPath, body);
   }
 
-  public deleteRequest(path: string): PromiseLike<void> {
+  public deleteRequest(path: string): Promise<void> {
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-
-    return this.httpClient.delete(this.options({ url: normalizedPath }));
+    return this.request<void>('DELETE', normalizedPath);
   }
 
-  public job(params: types.IJobOptions): PromiseLike<types.IJob> {
+  public job(params: types.IJobOptions): Promise<types.IJob> {
     return this.post('/api/v1/search/jobs', params);
   }
 
-  public status(id: string): PromiseLike<types.IStatus> {
+  public status(id: string): Promise<types.IStatus> {
     return this.get(`/api/v1/search/jobs/${id}`);
   }
 
   public messages(
     id: string,
     params: Partial<types.IPaginationOptions> = defaultPaginationOptions,
-  ): PromiseLike<types.IMessages> {
-    const query = this.paginationQuery(
-      mergeRight(defaultPaginationOptions, params),
-    );
+  ): Promise<types.IMessages> {
+    const query = this.paginationQuery({
+      ...defaultPaginationOptions,
+      ...params,
+    });
 
     return this.get(`/api/v1/search/jobs/${id}/messages?${query}`);
   }
@@ -82,15 +67,16 @@ export class Client {
   public records(
     id: string,
     params: Partial<types.IPaginationOptions> = defaultPaginationOptions,
-  ): PromiseLike<types.IRecords> {
-    const query = this.paginationQuery(
-      mergeRight(defaultPaginationOptions, params),
-    );
+  ): Promise<types.IRecords> {
+    const query = this.paginationQuery({
+      ...defaultPaginationOptions,
+      ...params,
+    });
 
     return this.get(`/api/v1/search/jobs/${id}/records?${query}`);
   }
 
-  public delete(id: string): PromiseLike<void> {
+  public delete(id: string): Promise<void> {
     return this.deleteRequest(`/api/v1/search/jobs/${id}`);
   }
 
@@ -98,29 +84,80 @@ export class Client {
     return queryString.stringify(params);
   }
 
-  private options(options: types.IHttpCallOptions): types.HttpClientOptions {
-    const defaultOptions = {
-      auth: {
-        pass: this.params.sumoApiKey,
-        user: this.params.sumoApiId,
-      },
-      jar: true,
-      json: true,
+  private authHeader(): string {
+    const credentials = `${this.params.sumoApiId}:${this.params.sumoApiKey}`;
+    return `Basic ${Buffer.from(credentials).toString('base64')}`;
+  }
+
+  private cookieHeader(): string | undefined {
+    if (this.cookies.size === 0) {
+      return undefined;
+    }
+
+    return Array.from(this.cookies.entries())
+      .map(([name, value]) => `${name}=${value}`)
+      .join('; ');
+  }
+
+  private captureCookies(response: Response): void {
+    for (const cookie of response.headers.getSetCookie()) {
+      const [pair] = cookie.split(';');
+      const separatorIndex = pair.indexOf('=');
+      if (separatorIndex === -1) {
+        continue;
+      }
+
+      const name = pair.slice(0, separatorIndex).trim();
+      const value = pair.slice(separatorIndex + 1).trim();
+      if (name) {
+        this.cookies.set(name, value);
+      }
+    }
+  }
+
+  private async request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+  ): Promise<T> {
+    const url = `${this.root}${path.startsWith('/') ? path : `/${path}`}`;
+    const headers: Record<string, string> = {
+      Authorization: this.authHeader(),
+      Accept: 'application/json',
     };
 
-    const path = options.url?.startsWith('/') ? options.url : `/${options.url}`;
+    const cookie = this.cookieHeader();
+    if (cookie) {
+      headers.Cookie = cookie;
+    }
 
-    const requestOptions = {
-      ...options,
-      url: this.root + path,
-    };
+    if (body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+    }
 
-    return mergeRight(requestOptions, defaultOptions);
+    const response = await fetch(url, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+
+    this.captureCookies(response);
+
+    const text = await response.text();
+
+    if (!response.ok) {
+      throw new Error(`${response.status} - ${text}`);
+    }
+
+    if (!text) {
+      return undefined as T;
+    }
+
+    return JSON.parse(text) as T;
   }
 }
 
-const client = (params: types.IClientOptions): Client =>
-  new Client(requestPromise, params);
+const client = (params: types.IClientOptions): Client => new Client(params);
 
 export { client };
 export * from './types.js';
