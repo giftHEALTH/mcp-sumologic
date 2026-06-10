@@ -168,7 +168,8 @@ npm run dev:http     # HTTP on port 3006
 
 For testing:
 ```bash
-npm test
+npm test              # run Vitest suite once
+npm run test:watch    # watch mode
 ```
 
 ## Makefile

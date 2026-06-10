@@ -14,7 +14,8 @@ npm run build        # Compile TypeScript (tsc + tsc-alias for path aliases)
 npm start            # Run compiled server (stdio)
 npm run start:http   # Run HTTP server on port 3006
 npm run dev          # Dev mode with nodemon + tsx (auto-reload)
-npm test             # Run Jest tests
+npm test             # Run Vitest suite once
+npm run test:watch   # Watch mode
 npm run lint         # ESLint
 npm run lint:fix     # ESLint with auto-fix
 npm run format       # Prettier format
