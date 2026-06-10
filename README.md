@@ -24,7 +24,7 @@ PORT=3006                  # Optional (HTTP mode only)
 Pull and run the published image from GHCR:
 
 ```bash
-docker run -i --rm \
+docker run --pull=always -i --rm \
   -e SUMO_API_ID=... \
   -e SUMO_API_KEY=... \
   ghcr.io/gifthealth/mcp-sumologic
@@ -36,7 +36,7 @@ docker run -i --rm \
 {
   "mcpServers": {
     "sumologic": {
-      "command": "docker run -i --rm -e SUMO_API_ID -e SUMO_API_KEY ghcr.io/gifthealth/mcp-sumologic",
+      "command": "docker run --pull=always -i --rm -e SUMO_API_ID -e SUMO_API_KEY ghcr.io/gifthealth/mcp-sumologic",
       "env": {
         "SUMO_API_ID": "...",
         "SUMO_API_KEY": "..."
@@ -79,7 +79,7 @@ The server supports two transports, selected by CLI argument:
 
 ```bash
 docker build -t ghcr.io/gifthealth/mcp-sumologic .
-docker run -i --rm \
+docker run --pull=always -i --rm \
   -e SUMO_API_ID=... \
   -e SUMO_API_KEY=... \
   ghcr.io/gifthealth/mcp-sumologic
@@ -88,7 +88,7 @@ docker run -i --rm \
 ### HTTP (opt-in)
 
 ```bash
-docker run -p 3006:3006 --env-file .env \
+docker run --pull=always -p 3006:3006 --env-file .env \
   ghcr.io/gifthealth/mcp-sumologic \
   node dist/index.js http
 ```

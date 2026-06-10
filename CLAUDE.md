@@ -23,8 +23,8 @@ npm run format:check # Prettier check
 
 # Docker
 docker build -t ghcr.io/gifthealth/mcp-sumologic .
-docker run -i --rm -e SUMO_API_ID -e SUMO_API_KEY ghcr.io/gifthealth/mcp-sumologic
-docker run --rm --env-file .env -p 3006:3006 ghcr.io/gifthealth/mcp-sumologic node dist/index.js http
+docker run --pull=always -i --rm -e SUMO_API_ID -e SUMO_API_KEY ghcr.io/gifthealth/mcp-sumologic
+docker run --pull=always --rm --env-file .env -p 3006:3006 ghcr.io/gifthealth/mcp-sumologic node dist/index.js http
 docker-compose up --build -d
 ```
 
