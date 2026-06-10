@@ -1,7 +1,7 @@
 {
   "name": "mcp-sumologic",
   "version": "1.0.0",
-  "description": "MCP server for sumologic query",
+  "description": "Read-only MCP server for Sumo Logic: log search, aggregation, metadata, metrics, monitors, and content",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
@@ -19,8 +19,16 @@
     "test": "jest",
     "prepare": "husky install"
   },
-  "author": "sam.wang",
+  "author": "justinko",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/giftHEALTH/mcp-sumologic.git"
+  },
+  "homepage": "https://github.com/giftHEALTH/mcp-sumologic#readme",
+  "bugs": {
+    "url": "https://github.com/giftHEALTH/mcp-sumologic/issues"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.1",
     "@types/express": "^5.0.3",
