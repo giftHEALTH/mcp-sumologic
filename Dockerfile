@@ -29,7 +29,6 @@ RUN npm pkg delete scripts.prepare && \
 
 # Copy built files from builder stage
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/.env ./.env
 
 # Set environment variables
 ENV NODE_ENV=production

@@ -23,10 +23,10 @@ test:
 	npm run test
 
 docker-build:
-	docker build -t mcp-sumologic .
+	docker build -t ghcr.io/gifthealth/mcp-sumologic .
 
 docker-run:
-	docker run --rm --env-file .env -p 3006:3006 mcp-sumologic
+	docker run --rm --env-file .env -p 3006:3006 ghcr.io/gifthealth/mcp-sumologic node dist/index.js http
 
 docker-compose:
 	docker-compose up --build -d

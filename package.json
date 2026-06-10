@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "start": "NODE_PATH=./dist node -r tsconfig-paths/register dist/index.js",
+    "start:http": "NODE_PATH=./dist node -r tsconfig-paths/register dist/index.js http",
     "dev": "nodemon --watch 'src/**/*.ts' --exec 'tsx' src/index.ts",
+    "dev:http": "nodemon --watch 'src/**/*.ts' --exec 'tsx' src/index.ts http",
     "build": "tsc && tsc-alias",
     "watch": "tsc -w",
     "clean": "rimraf dist",

@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import express from 'express';
@@ -11,8 +12,10 @@ import * as Sumo from '@/lib/sumologic/client.js';
 // Load environment variables from .env file
 config();
 
+const DEFAULT_ENDPOINT = 'https://api.us2.sumologic.com/api/v1';
+
 const sumoClient = Sumo.client({
-  endpoint: process.env.ENDPOINT || '',
+  endpoint: process.env.ENDPOINT || DEFAULT_ENDPOINT,
   sumoApiId: process.env.SUMO_API_ID || '',
   sumoApiKey: process.env.SUMO_API_KEY || '',
 });
@@ -78,7 +81,14 @@ function createServer(): McpServer {
   return server;
 }
 
-async function runServer() {
+async function runStdioServer() {
+  const server = createServer();
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error('MCP Sumologic Server running on stdio');
+}
+
+async function runHttpServer() {
   const app = express();
   app.use(express.json());
 
@@ -182,17 +192,19 @@ async function runServer() {
   });
 }
 
-runServer().catch((error) => {
+const mode = process.argv[2];
+const main = mode === 'http' ? runHttpServer : runStdioServer;
+main().catch((error) => {
   console.error('Failed to start Sumologic MCP server:', error);
   process.exit(1);
 });
 
 process.on('SIGINT', async () => {
-  console.log('Shutting down Sumologic MCP server...');
+  console.error('Shutting down Sumologic MCP server...');
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-  console.log('Shutting down Sumologic MCP server...');
+  console.error('Shutting down Sumologic MCP server...');
   process.exit(0);
 });

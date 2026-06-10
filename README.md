@@ -9,15 +9,53 @@ A Model Context Protocol (MCP) server that integrates with Sumo Logic's API to p
 - Search Sumo Logic logs using custom queries
 - Configurable time ranges for searches
 - Error handling and detailed logging
-- Docker support for easy deployment
+- stdio transport by default (works with MCP clients and `docker run -i`)
+- Optional Streamable HTTP transport for remote deployments
 
 ## Environment Variables
 
 ```env
-ENDPOINT=https://{host}/api/v1  # Sumo Logic API endpoint
-SUMO_API_ID=your_api_id                       # Sumo Logic API ID
-SUMO_API_KEY=your_api_key                     # Sumo Logic API Key
+SUMO_API_ID=your_api_id   # Required
+SUMO_API_KEY=your_api_key # Required
+ENDPOINT=https://api.us2.sumologic.com/api/v1  # Optional (defaults to gifthealth US2)
+PORT=3006                  # Optional (HTTP mode only)
 ```
+
+## Quick Start (stdio)
+
+Pull and run the published image from GHCR:
+
+```bash
+docker run -i --rm \
+  -e SUMO_API_ID=... \
+  -e SUMO_API_KEY=... \
+  ghcr.io/gifthealth/mcp-sumologic
+```
+
+### MCP Client Configuration
+
+```json
+{
+  "mcpServers": {
+    "sumologic": {
+      "command": "docker run -i --rm -e SUMO_API_ID -e SUMO_API_KEY ghcr.io/gifthealth/mcp-sumologic",
+      "env": {
+        "SUMO_API_ID": "...",
+        "SUMO_API_KEY": "..."
+      }
+    }
+  }
+}
+```
+
+## Transports
+
+The server supports two transports, selected by CLI argument:
+
+| Mode | Command | Use case |
+|------|---------|----------|
+| **stdio** (default) | `node dist/index.js` | MCP clients, `docker run -i` |
+| **http** | `node dist/index.js http` | Remote HTTP/SSE deployment on port 3006 |
 
 ## Setup
 
@@ -26,45 +64,46 @@ SUMO_API_KEY=your_api_key                     # Sumo Logic API Key
    ```bash
    npm install
    ```
-3. Create a `.env` file with the required environment variables
+3. Create a `.env` file with `SUMO_API_ID` and `SUMO_API_KEY`
 4. Build the project:
    ```bash
    npm run build
    ```
 5. Start the server:
    ```bash
-   npm start
+   npm start          # stdio (default)
+   npm run start:http # HTTP on port 3006
    ```
 
 ## Docker Setup
 
-1. Build the Docker image:
-   ```bash
-   docker build -t mcp/sumologic .
-   ```
+### stdio (default)
 
-2. Run the container (choose one method):
+```bash
+docker build -t ghcr.io/gifthealth/mcp-sumologic .
+docker run -i --rm \
+  -e SUMO_API_ID=... \
+  -e SUMO_API_KEY=... \
+  ghcr.io/gifthealth/mcp-sumologic
+```
 
-   a. Using environment variables directly:
-   ```bash
-   docker run -e ENDPOINT=your_endpoint -e SUMO_API_ID=your_api_id -e SUMO_API_KEY=your_api_key mcp/sumologic
-   ```
+### HTTP (opt-in)
 
-   b. Using a .env file:
-   ```bash
-   docker run --env-file .env mcp/sumologic
-   ```
+```bash
+docker run -p 3006:3006 --env-file .env \
+  ghcr.io/gifthealth/mcp-sumologic \
+  node dist/index.js http
+```
 
-   Note: Make sure your .env file contains the required environment variables:
-   ```env
-   ENDPOINT=your_endpoint
-   SUMO_API_ID=your_api_id
-   SUMO_API_KEY=your_api_key
-   ```
+Or use Docker Compose (runs HTTP mode on port 3006):
+
+```bash
+docker-compose up --build -d
+```
 
 ## Usage
 
-The server exposes a `search-sumologic` tool that accepts the following parameters:
+The server exposes a `search_sumologic` tool that accepts the following parameters:
 
 - `query` (required): The Sumo Logic search query
 - `from` (optional): Start time in ISO 8601 format
@@ -90,7 +129,8 @@ The server includes comprehensive error handling and logging:
 
 To run in development mode:
 ```bash
-npm run dev
+npm run dev          # stdio (default)
+npm run dev:http     # HTTP on port 3006
 ```
 
 For testing:
@@ -106,7 +146,7 @@ Common tasks are available via `make`:
 |----------------------|----------------------------------------------|
 | `make install`       | Install dependencies                         |
 | `make build`         | Build the project                            |
-| `make start`         | Start the server                             |
+| `make start`         | Start the server (stdio)                     |
 | `make dev`           | Start in development mode (auto-reload)      |
 | `make clean`         | Remove `dist/` and `node_modules/`           |
 | `make lint`          | Run ESLint                                   |
@@ -114,4 +154,4 @@ Common tasks are available via `make`:
 | `make docker-build`  | Build Docker image                           |
 | `make docker-run`    | Run container with `.env` file on port 3006  |
 | `make docker-compose`| Start services via Docker Compose            |
-| `make docker-down`   | Stop Docker Compose services                 | 
+| `make docker-down`   | Stop Docker Compose services                 |
