@@ -47,7 +47,7 @@ describe('search', () => {
     vi.mocked(deleteJob).mockResolvedValue(undefined);
   });
 
-  it('searchLogs masks messages and always deletes the job', async () => {
+  it('searchLogs returns messages and always deletes the job', async () => {
     const result = await searchLogs(client, 'error | count', {
       limit: 25,
     });
@@ -64,11 +64,11 @@ describe('search', () => {
     });
     expect(deleteJob).toHaveBeenCalledWith(client, 'job-1');
     expect(result.messages[0]).toMatchObject({
-      map: { _raw: 'email [EMAIL REDACTED]' },
+      map: { _raw: 'email user@example.com' },
     });
   });
 
-  it('searchAggregate masks records and always deletes the job', async () => {
+  it('searchAggregate returns records and always deletes the job', async () => {
     const result = await searchAggregate(client, 'error | count by _source');
 
     expect(getRecords).toHaveBeenCalledWith(client, 'job-1', {
@@ -77,7 +77,7 @@ describe('search', () => {
     });
     expect(deleteJob).toHaveBeenCalledWith(client, 'job-1');
     expect(result.records[0]).toMatchObject({
-      map: { _raw: 'phone [PHONE REDACTED]' },
+      map: { _raw: 'phone 833-376-1995' },
     });
   });
 

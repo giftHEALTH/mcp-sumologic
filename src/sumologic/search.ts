@@ -1,4 +1,3 @@
-import { maskSearchResultItems } from '@/pii/index.js';
 import { loadConfig } from '@/config.js';
 import type { SumoClient } from '@/sumologic/http.js';
 import {
@@ -55,7 +54,7 @@ export async function searchLogs(
     await deleteJob(client, jobId);
 
     return {
-      messages: maskSearchResultItems(messages.messages),
+      messages: messages.messages,
     };
   } catch (error) {
     console.error('Sumo Logic search error:', error);
@@ -77,7 +76,7 @@ export async function searchAggregate(
     await deleteJob(client, jobId);
 
     return {
-      records: maskSearchResultItems(records.records),
+      records: records.records,
     };
   } catch (error) {
     console.error('Sumo Logic aggregate search error:', error);

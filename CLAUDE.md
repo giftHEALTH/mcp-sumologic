@@ -52,9 +52,6 @@ src/
 │   ├── metrics.ts                # Metrics queries
 │   ├── monitors.ts               # Monitors and health events
 │   └── content.ts                # Library content and folders
-└── pii/
-    ├── patterns.ts               # PII regex patterns
-    └── index.ts                  # maskSensitiveInfo, maskSearchResultItems
 ```
 
 ### Request Flow
@@ -64,7 +61,6 @@ src/
 3. **Tools** (`tools/registry.ts`): Zod schemas with inferred handler args (no casts); call sumologic domain modules; return JSON via `tools/format.ts`.
 4. **Search** (`sumologic/search.ts` + `searchJobs.ts`): Creates search job, polls until `DONE GATHERING RESULTS`, fetches messages or records, deletes job. Default time range is last 24 hours; timezone from `SEARCH_TIME_ZONE` (default `Asia/Hong_Kong`).
 5. **HTTP client** (`sumologic/http.ts`): Normalizes API root from `ENDPOINT`, Basic auth, cookie jar for search-job affinity, `URLSearchParams` for query strings.
-6. **PII filtering** (`pii/index.ts`): Applied to `_raw` and `response` fields in search messages/records.
 
 ### MCP Tools (read-only)
 
