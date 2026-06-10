@@ -1,4 +1,5 @@
-import * as Sumo from '@/lib/sumologic/client.js';
+import type { SumoClient } from '@/sumologic/http.js';
+import { parseLooseResponse } from '@/sumologic/schemas.js';
 
 export interface MetricsQueryOptions {
   query: string;
@@ -34,7 +35,7 @@ function buildTimeRange(from?: string, to?: string) {
 }
 
 export async function queryMetrics(
-  client: Sumo.Client,
+  client: SumoClient,
   options: MetricsQueryOptions,
 ) {
   const body = {
@@ -49,5 +50,6 @@ export async function queryMetrics(
     timeRange: buildTimeRange(options.from, options.to),
   };
 
-  return client.post('/api/v1/metricsQueries', body);
+  const raw = await client.post('/api/v1/metricsQueries', body);
+  return parseLooseResponse(raw);
 }

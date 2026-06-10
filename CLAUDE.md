@@ -31,27 +31,39 @@ docker-compose up --build -d
 
 ```
 src/
-├── index.ts                      # MCP server setup (stdio default, HTTP opt-in)
-├── tools/                        # Tool registry and per-area tool definitions
-├── domains/sumologic/
+├── index.ts                      # Thin entry: load config, pick transport
+├── config.ts                     # Zod-validated env (creds optional + stderr warning)
+├── server.ts                     # createServer() — registers tools from registry
+├── transports/
+│   ├── stdio.ts                  # StdioServerTransport
+│   └── http.ts                   # Express + Streamable HTTP (/health, /mcp)
+├── tools/
+│   ├── defineTool.ts             # Generic tool helper (preserves zod inference)
+│   ├── format.ts                 # JSON formatting + runTool error wrapper
+│   └── registry.ts               # All 15 tool definitions
+├── sumologic/
+│   ├── http.ts                   # SumoClient (fetch, auth, cookie jar, get/post/delete)
+│   ├── searchJobs.ts             # Search job lifecycle + poll
+│   ├── schemas.ts                # Zod response schemas (strict jobs, loose admin)
+│   ├── timeRange.ts              # Native defaultTimeRange (no moment)
 │   ├── search.ts                 # Log search (messages) and aggregation (records)
 │   ├── metadata.ts               # Collectors, sources, partitions, fields, scheduled views
 │   ├── metrics.ts                # Metrics queries
 │   ├── monitors.ts               # Monitors and health events
 │   └── content.ts                # Library content and folders
-├── lib/sumologic/
-│   ├── client.ts                 # Generic Sumo Logic HTTP client (v1 + v2 paths)
-│   └── types.ts                  # TypeScript interfaces for Sumo Logic API
-└── utils/pii.ts                  # PII masking for search results
+└── pii/
+    ├── patterns.ts               # PII regex patterns
+    └── index.ts                  # maskSensitiveInfo, maskSearchResultItems
 ```
 
 ### Request Flow
 
-1. **MCP entry** (`index.ts`): Registers tools from `tools/` registry. stdio is default; pass `http` CLI arg for Express on port 3006.
-2. **Tools** (`tools/*.ts`): Zod schemas + handlers that call domain modules and return JSON text.
-3. **Search** (`domains/sumologic/search.ts`): Creates search job, polls until `DONE GATHERING RESULTS`, fetches messages or records, deletes job. Default time range is last 24 hours, timezone `Asia/Hong_Kong`.
-4. **HTTP client** (`lib/sumologic/client.ts`): Normalizes API root from `ENDPOINT`, exposes `get`/`post` for `/api/v1` and `/api/v2` paths plus search-job helpers.
-5. **PII filtering** (`utils/pii.ts`): Applied to `_raw` and `response` fields in search messages/records.
+1. **Entry** (`index.ts`): Loads dotenv + `loadConfig()`, creates `SumoClient`, picks stdio or HTTP transport.
+2. **Server** (`server.ts`): Builds `McpServer`, registers all tools from `tools/registry.ts` via `defineTool`.
+3. **Tools** (`tools/registry.ts`): Zod schemas with inferred handler args (no casts); call sumologic domain modules; return JSON via `tools/format.ts`.
+4. **Search** (`sumologic/search.ts` + `searchJobs.ts`): Creates search job, polls until `DONE GATHERING RESULTS`, fetches messages or records, deletes job. Default time range is last 24 hours; timezone from `SEARCH_TIME_ZONE` (default `Asia/Hong_Kong`).
+5. **HTTP client** (`sumologic/http.ts`): Normalizes API root from `ENDPOINT`, Basic auth, cookie jar for search-job affinity, `URLSearchParams` for query strings.
+6. **PII filtering** (`pii/index.ts`): Applied to `_raw` and `response` fields in search messages/records.
 
 ### MCP Tools (read-only)
 
@@ -71,11 +83,14 @@ src/
 - **Path aliases**: `@/*` maps to `src/*` (tsconfig paths + `tsc-alias` for build, `tsx` handles in dev)
 - **Transport**: stdio default; HTTP opt-in via `node dist/index.js http`
 - **Health endpoint**: `GET /health` returns service status and enabled tools (HTTP mode)
+- **Type safety**: `defineTool()` preserves zod inference; single cast at MCP SDK boundary in `server.ts`
+- **Response validation**: Strict zod schemas for search jobs; loose passthrough for admin/list endpoints
 
 ## Environment Variables
 
-Required in `.env`:
-- `SUMO_API_ID` — API access ID
-- `SUMO_API_KEY` — API access key
+- `SUMO_API_ID` — API access ID (optional at boot; API calls fail without it)
+- `SUMO_API_KEY` — API access key (optional at boot)
 - `ENDPOINT` — Sumo Logic API base URL (default: `https://api.us2.sumologic.com/api/v1`)
 - `PORT` — Server port for HTTP mode (default: 3006)
+- `SEARCH_TIME_ZONE` — Default search timezone (default: `Asia/Hong_Kong`)
+- `DEFAULT_LIMIT` — Default search result limit (default: 100)
