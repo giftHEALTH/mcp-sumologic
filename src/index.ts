@@ -5,11 +5,10 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import express from 'express';
 import { randomUUID } from 'node:crypto';
-import { z } from 'zod';
-import { search } from '@/domains/sumologic/client.js';
 import * as Sumo from '@/lib/sumologic/client.js';
+import { allTools, toolNames } from '@/tools/index.js';
+import { runTool } from '@/tools/helpers.js';
 
-// Load environment variables from .env file
 config();
 
 const DEFAULT_ENDPOINT = 'https://api.us2.sumologic.com/api/v1';
@@ -20,63 +19,17 @@ const sumoClient = Sumo.client({
   sumoApiKey: process.env.SUMO_API_KEY || '',
 });
 
-// Safely stringify objects, handling potential circular references
-const safeStringify = (obj: any) => {
-  const seen = new WeakSet();
-  return JSON.stringify(
-    obj,
-    (key, value) => {
-      if (typeof value === 'object' && value !== null) {
-        if (seen.has(value)) {
-          return '[Circular Reference]';
-        }
-        seen.add(value);
-      }
-      return value;
-    },
-    2,
-  );
-};
-
 function createServer(): McpServer {
   const server = new McpServer({
     name: 'mcp-sumologic',
     version: '1.0.0',
   });
 
-  server.tool(
-    'search_sumologic',
-    {
-      query: z.string(),
-      from: z.string().optional(),
-      to: z.string().optional(),
-    },
-    async ({ query, from, to }) => {
-      try {
-        const cleanedQuery = query.replace(/\n/g, '');
-        const results = await search(sumoClient, cleanedQuery, { from, to });
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: safeStringify(results),
-            },
-          ],
-        };
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error('Unknown error');
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Error: ${error.message}`,
-            },
-          ],
-        };
-      }
-    },
-  );
+  for (const tool of allTools) {
+    server.tool(tool.name, tool.description, tool.schema, async (args) =>
+      runTool(() => tool.handler(sumoClient, args)),
+    );
+  }
 
   return server;
 }
@@ -92,30 +45,25 @@ async function runHttpServer() {
   const app = express();
   app.use(express.json());
 
-  // Map to store transports by session ID for stateful connections
   const transports: { [sessionId: string]: StreamableHTTPServerTransport } = {};
 
-  // Health check endpoint
   app.get('/health', (_req, res) => {
     res.json({
       status: 'ok',
       service: 'mcp-sumologic',
       version: '1.0.0',
-      enabled_tools: ['search_sumologic'],
+      enabled_tools: toolNames,
     });
   });
 
-  // Handle POST requests for client-to-server communication
   app.post('/mcp', async (req, res) => {
     try {
       const sessionId = req.headers['mcp-session-id'] as string | undefined;
       let transport: StreamableHTTPServerTransport;
 
       if (sessionId && transports[sessionId]) {
-        // Reuse existing transport
         transport = transports[sessionId];
       } else if (!sessionId && isInitializeRequest(req.body)) {
-        // New initialization request
         transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => randomUUID(),
           onsessioninitialized: (newSessionId) => {
@@ -124,7 +72,6 @@ async function runHttpServer() {
           },
         });
 
-        // Clean up transport when closed
         transport.onclose = () => {
           if (transport.sessionId) {
             console.log(`MCP session closed: ${transport.sessionId}`);
@@ -162,7 +109,6 @@ async function runHttpServer() {
     }
   });
 
-  // Reusable handler for GET and DELETE requests
   const handleSessionRequest = async (
     req: express.Request,
     res: express.Response,
@@ -177,10 +123,7 @@ async function runHttpServer() {
     await transport.handleRequest(req, res);
   };
 
-  // Handle GET requests for server-to-client notifications via SSE
   app.get('/mcp', handleSessionRequest);
-
-  // Handle DELETE requests for session termination
   app.delete('/mcp', handleSessionRequest);
 
   const port = parseInt(process.env.PORT || '3006', 10);

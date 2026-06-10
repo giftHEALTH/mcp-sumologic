@@ -154,3 +154,70 @@ export function maskSensitiveInfo(text: string): string {
 
   return maskedText;
 }
+
+/** Mask PII in Sumo Logic search message/record map fields. */
+export function maskSearchResultItem(message: unknown): unknown {
+  if (typeof message === 'string') {
+    return message;
+  }
+
+  if (typeof message !== 'object' || message === null) {
+    return message;
+  }
+
+  const item = message as Record<string, unknown>;
+
+  if (item.map && typeof item.map === 'object') {
+    const plainMap: Record<string, string> = {};
+    Object.keys(item.map as Record<string, unknown>).forEach((key) => {
+      const rawValue =
+        (item.map as Record<string, unknown>)[key]?.toString() || '';
+
+      if (key === '_raw' || key === 'response') {
+        plainMap[key] = maskSensitiveInfo(rawValue);
+      } else {
+        plainMap[key] = rawValue;
+      }
+    });
+
+    const maskedRaw = item._raw
+      ? maskSensitiveInfo(item._raw.toString())
+      : undefined;
+
+    return {
+      ...item,
+      map: plainMap,
+      _raw: maskedRaw,
+    };
+  }
+
+  if (item._raw && typeof item._raw === 'string') {
+    return {
+      ...item,
+      _raw: maskSensitiveInfo(item._raw),
+    };
+  }
+
+  if (item.response && typeof item.response === 'string') {
+    return {
+      ...item,
+      response: maskSensitiveInfo(item.response),
+    };
+  }
+
+  const result = { ...item };
+
+  if (result._raw && typeof result._raw === 'string') {
+    result._raw = maskSensitiveInfo(result._raw);
+  }
+
+  if (result.response && typeof result.response === 'string') {
+    result.response = maskSensitiveInfo(result.response);
+  }
+
+  return result;
+}
+
+export function maskSearchResultItems(items: unknown[]): unknown[] {
+  return items.map((item) => maskSearchResultItem(item));
+}

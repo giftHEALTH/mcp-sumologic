@@ -103,20 +103,55 @@ docker-compose up --build -d
 
 ## Usage
 
-The server exposes a `search_sumologic` tool that accepts the following parameters:
+All tools are read-only. Search tools accept optional `from`/`to` ISO timestamps and `limit` (default 100).
 
-- `query` (required): The Sumo Logic search query
-- `from` (optional): Start time in ISO 8601 format
-- `to` (optional): End time in ISO 8601 format
+### Search
 
-Example query:
-```typescript
-const query = '_index={index} | json auto | fields log_identifier';
-const results = await search(sumoClient, query, {
-  from: '2024-02-23T00:00:00Z',
-  to: '2024-02-24T00:00:00Z',
-});
+| Tool | Description |
+|------|-------------|
+| `search_logs` | Raw log messages (non-aggregation queries) |
+| `search_aggregate` | Aggregation records (`count by`, `group by`, etc.) |
+
+Example — list source categories:
+
 ```
+query: _sourceCategory=* | count by _sourceCategory | sort by _count desc
+```
+
+Use `search_aggregate` for the above; use `search_logs` for raw log lines.
+
+### Data discovery
+
+| Tool | Description |
+|------|-------------|
+| `list_collectors` | List collectors |
+| `get_collector` | Get collector by ID |
+| `list_sources` | List sources for a collector |
+| `list_partitions` | List partitions (index/source category routing) |
+| `list_fields` | List configured fields |
+| `list_scheduled_views` | List scheduled views |
+
+### Metrics
+
+| Tool | Description |
+|------|-------------|
+| `query_metrics` | Run a metrics query (`query`, optional `from`/`to`, `quantization`, `rollup`) |
+
+### Monitoring
+
+| Tool | Description |
+|------|-------------|
+| `search_monitors` | Search monitors |
+| `get_monitor` | Get monitor by ID |
+| `list_health_events` | List health events |
+
+### Content
+
+| Tool | Description |
+|------|-------------|
+| `get_content_by_path` | Get library content by path |
+| `get_personal_folder` | Get personal content folder |
+| `get_folder` | Get folder by ID |
 
 ## Error Handling
 

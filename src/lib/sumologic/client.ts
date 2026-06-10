@@ -8,26 +8,64 @@ const defaultPaginationOptions: types.IPaginationOptions = {
   offset: 0,
 };
 
+export function normalizeRoot(endpoint: string): string {
+  const trimmed = endpoint.endsWith('/')
+    ? endpoint.slice(0, -1)
+    : endpoint;
+  return trimmed.replace(/\/api\/v\d+$/, '');
+}
+
 export class Client {
   private httpClient: types.HttpClient;
   private params: types.IClientOptions;
+  readonly root: string;
 
   constructor(httpClient: types.HttpClient, params: types.IClientOptions) {
     this.httpClient = httpClient;
     this.params = params;
+    this.root = normalizeRoot(params.endpoint);
   }
 
-  public job(params: types.IJobOptions): PromiseLike<types.IJob> {
-    return this.httpClient.post(
+  public get<T = unknown>(
+    path: string,
+    query?: Record<string, string | number | undefined>,
+  ): PromiseLike<T> {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    const queryStringValue =
+      query && Object.keys(query).length > 0
+        ? `?${queryString.stringify(query, { skipNull: true, skipEmptyString: true })}`
+        : '';
+
+    return this.httpClient.get(
       this.options({
-        body: params,
-        url: '/search/jobs',
+        url: `${normalizedPath}${queryStringValue}`,
       }),
     );
   }
 
+  public post<T = unknown>(path: string, body?: unknown): PromiseLike<T> {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+    return this.httpClient.post(
+      this.options({
+        body,
+        url: normalizedPath,
+      }),
+    );
+  }
+
+  public deleteRequest(path: string): PromiseLike<void> {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+    return this.httpClient.delete(this.options({ url: normalizedPath }));
+  }
+
+  public job(params: types.IJobOptions): PromiseLike<types.IJob> {
+    return this.post('/api/v1/search/jobs', params);
+  }
+
   public status(id: string): PromiseLike<types.IStatus> {
-    return this.httpClient.get(this.options({ url: `/search/jobs/${id}` }));
+    return this.get(`/api/v1/search/jobs/${id}`);
   }
 
   public messages(
@@ -38,11 +76,7 @@ export class Client {
       mergeRight(defaultPaginationOptions, params),
     );
 
-    return this.httpClient.get(
-      this.options({
-        url: `/search/jobs/${id}/messages?${query}`,
-      }),
-    );
+    return this.get(`/api/v1/search/jobs/${id}/messages?${query}`);
   }
 
   public records(
@@ -53,15 +87,11 @@ export class Client {
       mergeRight(defaultPaginationOptions, params),
     );
 
-    return this.httpClient.get(
-      this.options({
-        url: `/search/jobs/${id}/records?${query}`,
-      }),
-    );
+    return this.get(`/api/v1/search/jobs/${id}/records?${query}`);
   }
 
   public delete(id: string): PromiseLike<void> {
-    return this.httpClient.delete(this.options({ url: `/search/jobs/${id}` }));
+    return this.deleteRequest(`/api/v1/search/jobs/${id}`);
   }
 
   private paginationQuery(params: types.IPaginationOptions): string {
@@ -78,28 +108,14 @@ export class Client {
       json: true,
     };
 
-    const endpoint = this.params.endpoint.endsWith('/')
-      ? this.params.endpoint.slice(0, -1)
-      : this.params.endpoint;
     const path = options.url?.startsWith('/') ? options.url : `/${options.url}`;
 
     const requestOptions = {
       ...options,
-      url: endpoint + path,
+      url: this.root + path,
     };
 
-    const finalOptions = mergeRight(requestOptions, defaultOptions);
-
-    // console.log('Debug - Request Options:', {
-    //   endpoint: this.params.endpoint,
-    //   path: options.url,
-    //   finalUrl: finalOptions.url,
-    //   auth: finalOptions.auth,
-    //   body: finalOptions.body,
-    //   fullOptions: finalOptions,
-    // });
-
-    return finalOptions;
+    return mergeRight(requestOptions, defaultOptions);
   }
 }
 
